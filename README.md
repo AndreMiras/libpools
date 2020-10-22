@@ -4,6 +4,11 @@
 
 Python library for pools liquidity providers.
 
+## Install
+```sh
+pip install pools
+```
+
 ## Usage
 Command line interface:
 ```sh
