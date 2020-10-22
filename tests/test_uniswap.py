@@ -6,7 +6,7 @@ import pytest
 from gql.transport.exceptions import TransportServerError
 from requests.models import Response
 
-from pools.utils import (
+from pools.test_utils import (
     GQL_ETH_PRICE_RESPONSE,
     GQL_LIQUIDITY_POSITIONS_RESPONSE,
     GQL_PAIR_INFO_RESPONSE,
