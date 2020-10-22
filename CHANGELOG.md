@@ -1,7 +1,7 @@
 # Change Log
 
 
-## [Unreleased]
+## [20201023]
 
   - Setup CI, refs #3
   - Ship missing `abi.json`, refs #4
