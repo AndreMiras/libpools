@@ -37,6 +37,7 @@ setup_params = {
             "wheel",
         ]
     },
+    "entry_points": {"console_scripts": ("pools=pools.uniswap:main",)},
 }
 
 
