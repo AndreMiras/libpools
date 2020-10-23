@@ -1,7 +1,7 @@
 # Change Log
 
 
-## [Unreleased]
+## [20201024]
   - Clean transaction types
   - Setup coverage testing, refs #2
   - Command line interface install, refs #5
