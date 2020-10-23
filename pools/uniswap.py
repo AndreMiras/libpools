@@ -3,6 +3,8 @@ import argparse
 import json
 import os
 from contextlib import contextmanager
+from copy import deepcopy
+from datetime import datetime
 from decimal import Decimal
 from pprint import pprint
 from typing import Dict
@@ -273,6 +275,34 @@ def group_lp_transactions(transactions):
     return transaction_dict
 
 
+def fix_type_lp_transactions(transactions):
+    """Makes sure the type of each fields is correct."""
+    transactions = deepcopy(transactions)
+    for transaction in transactions:
+        transaction["amount0"] = Decimal(transaction["amount0"])
+        transaction["amount1"] = Decimal(transaction["amount1"])
+        transaction["amountUSD"] = Decimal(transaction["amountUSD"])
+        transaction["liquidity"] = Decimal(transaction["liquidity"])
+        transaction_transaction = transaction["transaction"]
+        block_number = transaction_transaction.pop("blockNumber")
+        transaction_transaction["block_number"] = int(block_number)
+        timestamp = transaction_transaction["timestamp"]
+        transaction_transaction["timestamp"] = datetime.utcfromtimestamp(int(timestamp))
+    return transactions
+
+
+def clean_transactions(mints_burns):
+    """
+    Fixes ordering, grouping, typing and dict key convention of the mints burns result.
+    """
+    mints = mints_burns["mints"]
+    burns = mints_burns["burns"]
+    transactions = merge_lp_transactions(mints, burns)
+    transactions = fix_type_lp_transactions(transactions)
+    transaction_dict = group_lp_transactions(transactions)
+    return transaction_dict
+
+
 @ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
 def portfolio(address):
     try:
@@ -286,10 +316,7 @@ def portfolio(address):
     positions += get_staking_positions(address)
     pair_addresses = [pair["pair"]["id"] for pair in positions]
     mints_burns = get_lp_transactions(address, pair_addresses)
-    mints = mints_burns["mints"]
-    burns = mints_burns["burns"]
-    transactions = merge_lp_transactions(mints, burns)
-    transaction_dict = group_lp_transactions(transactions)
+    transaction_dict = clean_transactions(mints_burns)
     balance_usd = 0
     pairs = []
     for position in positions:

@@ -13,7 +13,7 @@ git flow release start YYYYMMDD
 Now update the [CHANGELOG.md](/CHANGELOG.md) `[Unreleased]` section to match the new release version.
 Also update the `version` string in the [setup.py](/setup.py) file. Then commit and finish release.
 ```sh
-git commit -a -m "YYYYMMDD"
+git commit -a -m ":bookmark: YYYYMMDD"
 git flow release finish
 ```
 Push everything, make sure tags are also pushed:
