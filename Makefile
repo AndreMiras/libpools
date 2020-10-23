@@ -26,7 +26,7 @@ test: $(VIRTUAL_ENV)
 	$(TOX)
 
 pytest: $(VIRTUAL_ENV)
-	PYTHONPATH=src $(PYTEST) tests/
+	$(PYTEST) --cov pools/ --cov-report html tests/
 
 lint/isort: $(VIRTUAL_ENV)
 	$(ISORT) --check-only --diff $(SOURCES)

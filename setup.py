@@ -32,6 +32,7 @@ setup_params = {
             "flake8",
             "isort",
             "pytest",
+            "pytest-cov",
             "tox",
             "twine",
             "wheel",
