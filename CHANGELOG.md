@@ -1,6 +1,10 @@
 # Change Log
 
 
+## [Unreleased]
+  - Handle TheGraph `TransportQueryError`
+
+
 ## [20201024]
   - Clean transaction types
   - Setup coverage testing, refs #2

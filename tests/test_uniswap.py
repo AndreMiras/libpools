@@ -3,6 +3,7 @@ from io import BytesIO
 from unittest import mock
 
 import pytest
+from gql import gql
 from gql.transport.exceptions import TransportServerError
 from requests.models import Response
 
@@ -22,6 +23,13 @@ def patch_session_request(content, status_code=200):
     response.raw = BytesIO(content.encode())
     m_request = mock.Mock(return_value=response)
     return mock.patch("requests.Session.request", m_request)
+
+
+def patch_gql_transport_execute(m_execute):
+    # return mock.patch("gql.client.Client.transport.execute", m_execute)
+    # return mock.patch("gql.client.Transport.execute", m_execute)
+    # return mock.patch("gql.transport.Transport.execute", m_execute)
+    return mock.patch("pools.uniswap.RequestsHTTPTransport.execute", m_execute)
 
 
 class TestLibUniswapRoi:
@@ -75,6 +83,20 @@ class TestLibUniswapRoi:
                 json=mock.ANY,
             )
         ]
+
+    def test_gql_client_execute_exception(self):
+        """
+        On `TransportQueryError` exception a custom
+        `TheGraphServiceDownException` should be re-raised.
+        """
+        request_string = '{bundle(id: "1") {ethPrice}}'
+        query = gql(request_string)
+        m_execute = mock.Mock(return_value=mock.Mock(errors=["Error1", "Error2"]))
+        with pytest.raises(
+            self.uniswap.TheGraphServiceDownException, match="Error1"
+        ), patch_session_fetch_schema(), patch_gql_transport_execute(m_execute):
+            self.uniswap.gql_client_execute(query)
+        assert m_execute.call_args_list == [mock.call(mock.ANY)]
 
     def test_get_eth_price(self):
         m_execute = mock.Mock(return_value=GQL_ETH_PRICE_RESPONSE)

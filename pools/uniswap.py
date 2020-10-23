@@ -11,7 +11,7 @@ from typing import Dict
 
 from cachetools.func import ttl_cache
 from gql import Client, gql
-from gql.transport.exceptions import TransportServerError
+from gql.transport.exceptions import TransportQueryError, TransportServerError
 from gql.transport.requests import RequestsHTTPTransport
 from graphql import DocumentNode
 from web3.auto.infura import w3 as web3
@@ -75,8 +75,8 @@ class TheGraphServiceDownException(UniswapRoiException):
 def gql_exceptions():
     try:
         yield
-    except TransportServerError as e:
-        raise TheGraphServiceDownException(e)
+    except (TransportServerError, TransportQueryError) as e:
+        raise TheGraphServiceDownException(e.args[0])
 
 
 def get_gql_client():
