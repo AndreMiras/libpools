@@ -3,6 +3,7 @@
 
 ## [Unreleased]
   - Handle TheGraph `TransportQueryError`
+  - Pulls token daily, refs #6
 
 
 ## [20201024]

@@ -116,6 +116,19 @@ GQL_MINTS_BURNS_TX_RESPONSE = {
 }
 
 
+# not really sure why we have so many gaps and inaccuracy for the DAI/ETH contract
+# 0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11
+GQL_TOKEN_DAY_DATA_RESPONSE = {
+    "tokenDayDatas": [
+        {"date": 1602374400, "priceUSD": "0"},
+        {"date": 1602460800, "priceUSD": "0"},
+        {"date": 1602892800, "priceUSD": "32.32860336361385733755970401320658"},
+        {"date": 1602979200, "priceUSD": "0"},
+        {"date": 1603238400, "priceUSD": "0"},
+    ]
+}
+
+
 def patch_web3_contract(m_contract):
     return mock.patch("pools.uniswap.web3.eth.contract", m_contract)
 

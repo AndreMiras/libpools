@@ -336,6 +336,47 @@ def portfolio(address):
     return data
 
 
+@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+def get_token_daily_raw(address):
+    """
+    Raw pull of token daily data from TheGraph.
+    Note this call is not very reliable at the moment as the price list is not
+    always correct, plus there're some date gaps.
+    """
+    request_string = """
+        query getTokenDayDatas($token: String!) {
+          tokenDayDatas(orderBy: date, orderDirection: asc, where: {token: $token}) {
+            date
+            priceUSD
+          }
+        }
+      """
+    query = gql(request_string)
+    # note The Graph doesn't seem to like it in checksum format
+    address = address.lower()
+    variable_values = {"token": address}
+    result = gql_client_execute(query, variable_values=variable_values)
+    result = result["tokenDayDatas"]
+    return result
+
+
+def fix_type_token_daily(data):
+    """Makes sure the type of each fields is correct."""
+    data = deepcopy(data)
+    for data_day in data:
+        price_usd = data_day.pop("priceUSD")
+        data_day["price_usd"] = Decimal(price_usd)
+        data_day["date"] = datetime.utcfromtimestamp(int(data_day["date"]))
+    return data
+
+
+@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+def get_token_daily(address):
+    data = get_token_daily_raw(address)
+    data = fix_type_token_daily(data)
+    return data
+
+
 def main():
     parser = argparse.ArgumentParser(description="Liquidity provider portfolio stats.")
     parser.add_argument("address", help="Address")

@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from unittest import mock
@@ -11,6 +12,7 @@ from pools.test_utils import (
     GQL_ETH_PRICE_RESPONSE,
     GQL_LIQUIDITY_POSITIONS_RESPONSE,
     GQL_PAIR_INFO_RESPONSE,
+    GQL_TOKEN_DAY_DATA_RESPONSE,
     patch_client_execute,
     patch_session_fetch_schema,
     patch_web3_contract,
@@ -180,3 +182,24 @@ class TestLibUniswapRoi:
             positions = self.uniswap.get_staking_positions(self.address)
         assert m_contract().functions.balanceOf().call.call_count == 4
         assert len(positions) == 0
+
+    def test_get_token_daily(self):
+        m_execute = mock.Mock(return_value=GQL_TOKEN_DAY_DATA_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_token_daily(self.contract_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={"token": self.contract_address.lower()},
+            )
+        ]
+        assert data == [
+            {"date": datetime(2020, 10, 11, 0, 0), "price_usd": Decimal("0")},
+            {"date": datetime(2020, 10, 12, 0, 0), "price_usd": Decimal("0")},
+            {
+                "date": datetime(2020, 10, 17, 0, 0),
+                "price_usd": Decimal("32.32860336361385733755970401320658"),
+            },
+            {"date": datetime(2020, 10, 18, 0, 0), "price_usd": Decimal("0")},
+            {"date": datetime(2020, 10, 21, 0, 0), "price_usd": Decimal("0")},
+        ]
