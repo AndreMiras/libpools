@@ -11,6 +11,7 @@ from requests.models import Response
 from pools.test_utils import (
     GQL_ETH_PRICE_RESPONSE,
     GQL_LIQUIDITY_POSITIONS_RESPONSE,
+    GQL_PAIR_DAY_DATA_RESPONSE,
     GQL_PAIR_INFO_RESPONSE,
     GQL_TOKEN_DAY_DATA_RESPONSE,
     patch_client_execute,
@@ -28,15 +29,15 @@ def patch_session_request(content, status_code=200):
 
 
 def patch_gql_transport_execute(m_execute):
-    # return mock.patch("gql.client.Client.transport.execute", m_execute)
-    # return mock.patch("gql.client.Transport.execute", m_execute)
-    # return mock.patch("gql.transport.Transport.execute", m_execute)
     return mock.patch("pools.uniswap.RequestsHTTPTransport.execute", m_execute)
 
 
 class TestLibUniswapRoi:
     address = "0x000000000000000000000000000000000000dEaD"
-    contract_address = "0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11"
+    # DAI
+    token_address = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    # DAI-ETH
+    pair_address = "0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11"
 
     def setup_method(self):
         with mock.patch.dict("os.environ", {"WEB3_INFURA_PROJECT_ID": "1"}):
@@ -52,6 +53,8 @@ class TestLibUniswapRoi:
             self.uniswap.get_liquidity_positions,
             self.uniswap.get_pair_info,
             self.uniswap.get_staking_positions,
+            self.uniswap.get_token_daily_raw,
+            self.uniswap.get_pair_daily_raw,
         )
         for function in functions:
             function.cache_clear()
@@ -130,11 +133,11 @@ class TestLibUniswapRoi:
     def test_get_pair_info(self):
         m_execute = mock.Mock(return_value=GQL_PAIR_INFO_RESPONSE)
         with patch_client_execute(m_execute), patch_session_fetch_schema():
-            pair_info = self.uniswap.get_pair_info(self.contract_address)
+            pair_info = self.uniswap.get_pair_info(self.pair_address)
         assert m_execute.call_args_list == [
             mock.call(
                 mock.ANY,
-                variable_values={"id": self.contract_address.lower()},
+                variable_values={"id": self.pair_address.lower()},
             )
         ]
         assert pair_info["pair"].keys() == {
@@ -186,20 +189,73 @@ class TestLibUniswapRoi:
     def test_get_token_daily(self):
         m_execute = mock.Mock(return_value=GQL_TOKEN_DAY_DATA_RESPONSE)
         with patch_client_execute(m_execute), patch_session_fetch_schema():
-            data = self.uniswap.get_token_daily(self.contract_address)
+            data = self.uniswap.get_token_daily(self.token_address)
         assert m_execute.call_args_list == [
             mock.call(
                 mock.ANY,
-                variable_values={"token": self.contract_address.lower()},
+                variable_values={"token": self.token_address.lower()},
             )
         ]
         assert data == [
-            {"date": datetime(2020, 10, 11, 0, 0), "price_usd": Decimal("0")},
-            {"date": datetime(2020, 10, 12, 0, 0), "price_usd": Decimal("0")},
             {
-                "date": datetime(2020, 10, 17, 0, 0),
-                "price_usd": Decimal("32.32860336361385733755970401320658"),
+                "date": datetime(2020, 10, 25, 0, 0),
+                "price_usd": Decimal("1.0037"),
             },
-            {"date": datetime(2020, 10, 18, 0, 0), "price_usd": Decimal("0")},
-            {"date": datetime(2020, 10, 21, 0, 0), "price_usd": Decimal("0")},
+            {
+                "date": datetime(2020, 10, 24, 0, 0),
+                "price_usd": Decimal("1.0053"),
+            },
+            {
+                "date": datetime(2020, 10, 23, 0, 0),
+                "price_usd": Decimal("1.0063"),
+            },
+            {
+                "date": datetime(2020, 10, 22, 0, 0),
+                "price_usd": Decimal("1.0047"),
+            },
+            {
+                "date": datetime(2020, 10, 21, 0, 0),
+                "price_usd": Decimal("1.0059"),
+            },
+            {
+                "date": datetime(2020, 10, 20, 0, 0),
+                "price_usd": Decimal("1.0049"),
+            },
+        ]
+
+    def test_get_pair_daily(self):
+        m_execute = mock.Mock(return_value=GQL_PAIR_DAY_DATA_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pair_daily(self.pair_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={"pairAddress": self.pair_address.lower()},
+            )
+        ]
+        assert data == [
+            {
+                "date": datetime(2020, 10, 25, 0, 0),
+                "price_usd": Decimal("47.75974727766944294903865913"),
+            },
+            {
+                "date": datetime(2020, 10, 24, 0, 0),
+                "price_usd": Decimal("48.01749402379172222921539513"),
+            },
+            {
+                "date": datetime(2020, 10, 23, 0, 0),
+                "price_usd": Decimal("47.88345730523966278509766686"),
+            },
+            {
+                "date": datetime(2020, 10, 22, 0, 0),
+                "price_usd": Decimal("48.16869701768362998144941414"),
+            },
+            {
+                "date": datetime(2020, 10, 21, 0, 0),
+                "price_usd": Decimal("46.88813260917142369483660351"),
+            },
+            {
+                "date": datetime(2020, 10, 20, 0, 0),
+                "price_usd": Decimal("45.41583043969722591000008424"),
+            },
         ]

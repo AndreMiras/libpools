@@ -340,12 +340,16 @@ def portfolio(address):
 def get_token_daily_raw(address):
     """
     Raw pull of token daily data from TheGraph.
-    Note this call is not very reliable at the moment as the price list is not
-    always correct, plus there're some date gaps.
+    Note this getting the daily for the token, not the pair.
     """
     request_string = """
         query getTokenDayDatas($token: String!) {
-          tokenDayDatas(orderBy: date, orderDirection: asc, where: {token: $token}) {
+          tokenDayDatas(
+            orderBy: date,
+            orderDirection: desc,
+            first: 31,
+            where: {token: $token}
+          ) {
             date
             priceUSD
           }
@@ -370,10 +374,52 @@ def fix_type_token_daily(data):
     return data
 
 
-@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
 def get_token_daily(address):
     data = get_token_daily_raw(address)
     data = fix_type_token_daily(data)
+    return data
+
+
+@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+def get_pair_daily_raw(address):
+    """Raw pull of pair daily data from TheGraph."""
+    request_string = """
+        query getPairDayDatas($pairAddress: Bytes!) {
+          pairDayDatas(
+            orderBy: date,
+            orderDirection: desc,
+            first: 31,
+            where: {pairAddress: $pairAddress}
+          ) {
+            date
+            totalSupply
+            reserveUSD
+          }
+        }
+      """
+    query = gql(request_string)
+    # note The Graph doesn't seem to like it in checksum format
+    address = address.lower()
+    variable_values = {"pairAddress": address}
+    result = gql_client_execute(query, variable_values=variable_values)
+    result = result["pairDayDatas"]
+    return result
+
+
+def fix_type_pair_daily(data):
+    """Makes sure the type of each fields is correct."""
+    data = deepcopy(data)
+    for data_day in data:
+        reserve_usd = Decimal(data_day.pop("reserveUSD"))
+        total_supply = Decimal(data_day.pop("totalSupply"))
+        data_day["price_usd"] = reserve_usd / total_supply
+        data_day["date"] = datetime.utcfromtimestamp(int(data_day["date"]))
+    return data
+
+
+def get_pair_daily(address):
+    data = get_pair_daily_raw(address)
+    data = fix_type_pair_daily(data)
     return data
 
 

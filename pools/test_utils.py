@@ -116,15 +116,48 @@ GQL_MINTS_BURNS_TX_RESPONSE = {
 }
 
 
-# not really sure why we have so many gaps and inaccuracy for the DAI/ETH contract
-# 0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11
 GQL_TOKEN_DAY_DATA_RESPONSE = {
     "tokenDayDatas": [
-        {"date": 1602374400, "priceUSD": "0"},
-        {"date": 1602460800, "priceUSD": "0"},
-        {"date": 1602892800, "priceUSD": "32.32860336361385733755970401320658"},
-        {"date": 1602979200, "priceUSD": "0"},
-        {"date": 1603238400, "priceUSD": "0"},
+        {"date": 1603584000, "priceUSD": "1.0037"},
+        {"date": 1603497600, "priceUSD": "1.0053"},
+        {"date": 1603411200, "priceUSD": "1.0063"},
+        {"date": 1603324800, "priceUSD": "1.0047"},
+        {"date": 1603238400, "priceUSD": "1.0059"},
+        {"date": 1603152000, "priceUSD": "1.0049"},
+    ]
+}
+GQL_PAIR_DAY_DATA_RESPONSE = {
+    "pairDayDatas": [
+        {
+            "date": 1603584000,
+            "reserveUSD": "433176263.4363820888744425087438633",
+            "totalSupply": "9069902.755513910975050686",
+        },
+        {
+            "date": 1603497600,
+            "reserveUSD": "435317156.2189432956087607791883648",
+            "totalSupply": "9065803.30917003335268362",
+        },
+        {
+            "date": 1603411200,
+            "reserveUSD": "432572804.7594039159237288025989709",
+            "totalSupply": "9033867.416922493126112964",
+        },
+        {
+            "date": 1603324800,
+            "reserveUSD": "431764296.8691012640837948223336187",
+            "totalSupply": "8963586.802246124942226919",
+        },
+        {
+            "date": 1603238400,
+            "reserveUSD": "423735194.9935538342436108196570895",
+            "totalSupply": "9037152.290229410449908895",
+        },
+        {
+            "date": 1603152000,
+            "reserveUSD": "411207002.0385470304033146757759173",
+            "totalSupply": "9054265.837647610072038259",
+        },
     ]
 }
 
