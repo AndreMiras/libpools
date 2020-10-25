@@ -127,6 +127,25 @@ GQL_TOKEN_DAY_DATA_RESPONSE = {
     ]
 }
 GQL_PAIR_DAY_DATA_RESPONSE = {
+    "pair": {
+        "id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+        "reserveUSD": "415905325.9588990528391949333277547",
+        "token0": {
+            "derivedETH": "0.002482164437276671900656302172320963",
+            "id": "0x6b175474e89094c44da98b954eedeac495271d0f",
+            "name": "Dai Stablecoin",
+            "symbol": "DAI",
+        },
+        "token0Price": "402.87419519117702623465593526239",
+        "token1": {
+            "derivedETH": "1",
+            "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "name": "Wrapped Ether",
+            "symbol": "WETH",
+        },
+        "token1Price": "0.002482164437276671900656302172320963",
+        "totalSupply": "8730969.742669688720211513",
+    },
     "pairDayDatas": [
         {
             "date": 1603584000,
@@ -158,7 +177,7 @@ GQL_PAIR_DAY_DATA_RESPONSE = {
             "reserveUSD": "411207002.0385470304033146757759173",
             "totalSupply": "9054265.837647610072038259",
         },
-    ]
+    ],
 }
 
 

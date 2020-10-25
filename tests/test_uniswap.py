@@ -230,32 +230,58 @@ class TestLibUniswapRoi:
         assert m_execute.call_args_list == [
             mock.call(
                 mock.ANY,
-                variable_values={"pairAddress": self.pair_address.lower()},
+                variable_values={
+                    "id": self.pair_address.lower(),
+                    "pairAddress": self.pair_address.lower(),
+                },
             )
         ]
-        assert data == [
-            {
-                "date": datetime(2020, 10, 25, 0, 0),
-                "price_usd": Decimal("47.75974727766944294903865913"),
+        assert data == {
+            "pair": {
+                "id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                "price_usd": Decimal("47.63563936389575939010629216"),
+                "reserve_usd": Decimal("415905325.9588990528391949333277547"),
+                "symbol": "DAI-WETH",
+                "token0": {
+                    "derivedETH": "0.002482164437276671900656302172320963",
+                    "id": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                    "name": "Dai Stablecoin",
+                    "symbol": "DAI",
+                },
+                "token0Price": "402.87419519117702623465593526239",
+                "token1": {
+                    "derivedETH": "1",
+                    "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                    "name": "Wrapped Ether",
+                    "symbol": "WETH",
+                },
+                "token1Price": "0.002482164437276671900656302172320963",
+                "total_supply": Decimal("8730969.742669688720211513"),
             },
-            {
-                "date": datetime(2020, 10, 24, 0, 0),
-                "price_usd": Decimal("48.01749402379172222921539513"),
-            },
-            {
-                "date": datetime(2020, 10, 23, 0, 0),
-                "price_usd": Decimal("47.88345730523966278509766686"),
-            },
-            {
-                "date": datetime(2020, 10, 22, 0, 0),
-                "price_usd": Decimal("48.16869701768362998144941414"),
-            },
-            {
-                "date": datetime(2020, 10, 21, 0, 0),
-                "price_usd": Decimal("46.88813260917142369483660351"),
-            },
-            {
-                "date": datetime(2020, 10, 20, 0, 0),
-                "price_usd": Decimal("45.41583043969722591000008424"),
-            },
-        ]
+            "date_price": [
+                {
+                    "date": datetime(2020, 10, 25, 0, 0),
+                    "price_usd": Decimal("47.75974727766944294903865913"),
+                },
+                {
+                    "date": datetime(2020, 10, 24, 0, 0),
+                    "price_usd": Decimal("48.01749402379172222921539513"),
+                },
+                {
+                    "date": datetime(2020, 10, 23, 0, 0),
+                    "price_usd": Decimal("47.88345730523966278509766686"),
+                },
+                {
+                    "date": datetime(2020, 10, 22, 0, 0),
+                    "price_usd": Decimal("48.16869701768362998144941414"),
+                },
+                {
+                    "date": datetime(2020, 10, 21, 0, 0),
+                    "price_usd": Decimal("46.88813260917142369483660351"),
+                },
+                {
+                    "date": datetime(2020, 10, 20, 0, 0),
+                    "price_usd": Decimal("45.41583043969722591000008424"),
+                },
+            ],
+        }
