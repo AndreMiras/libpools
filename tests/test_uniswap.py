@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
@@ -291,6 +292,55 @@ class TestLibUniswapRoi:
         with patch_client_execute(m_execute), patch_session_fetch_schema():
             data = self.uniswap.get_pair_daily(self.pair_address)
         assert data.keys() == {"pair", "date_price"}
+
+    def test_get_pair_daily_total_supply_0(self):
+        """
+        Makes sure a total `totalSupply` of `0` in The Graph response
+        doesn't crash the library.
+        Note that when both numerator and denominator are zero the exception
+        is also different.
+        """
+        gql_pair_day_data_response = deepcopy(GQL_PAIR_DAY_DATA_RESPONSE)
+        gql_pair_day_data_response["pairDayDatas"] = [
+            {
+                "date": 1603584000,
+                "reserveUSD": "433176263.4363820888744425087438633",
+                "totalSupply": "0",
+            },
+            {
+                "date": 1603497600,
+                "reserveUSD": "435317156.2189432956087607791883648",
+                "totalSupply": "9065803.30917003335268362",
+            },
+            {
+                "date": 1603411200,
+                "reserveUSD": "0",
+                "totalSupply": "0",
+            },
+        ]
+        m_execute = mock.Mock(return_value=gql_pair_day_data_response)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pair_daily(self.pair_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={
+                    "id": self.pair_address.lower(),
+                    "pairAddress": self.pair_address.lower(),
+                },
+            )
+        ]
+        assert data == {
+            "pair": mock.ANY,
+            "date_price": [
+                {"date": datetime(2020, 10, 25, 0, 0), "price_usd": Decimal("0")},
+                {
+                    "date": datetime(2020, 10, 24, 0, 0),
+                    "price_usd": Decimal("48.01749402379172222921539513"),
+                },
+                {"date": datetime(2020, 10, 23, 0, 0), "price_usd": Decimal("0")},
+            ],
+        }
 
     def test_get_pairs(self):
         m_execute = mock.Mock(return_value=GQL_PAIRS_RESPONSE)

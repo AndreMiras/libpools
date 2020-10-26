@@ -5,7 +5,7 @@ import os
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, DivisionByZero, InvalidOperation
 from pprint import pprint
 from typing import Dict
 
@@ -416,7 +416,10 @@ def fix_type_pair_daily(data):
     for data_day in data:
         reserve_usd = Decimal(data_day.pop("reserveUSD"))
         total_supply = Decimal(data_day.pop("totalSupply"))
-        data_day["price_usd"] = reserve_usd / total_supply
+        try:
+            data_day["price_usd"] = reserve_usd / total_supply
+        except (InvalidOperation, DivisionByZero):
+            data_day["price_usd"] = Decimal(0)
         data_day["date"] = datetime.utcfromtimestamp(int(data_day["date"]))
     return data
 
