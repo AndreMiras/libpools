@@ -386,7 +386,6 @@ def get_pair_daily_raw(address):
           pair(id: $id) {"""
         + GQL_PAIR_PARAMETERS
         + """}
-
           pairDayDatas(
             orderBy: date,
             orderDirection: desc,
@@ -405,7 +404,6 @@ def get_pair_daily_raw(address):
     address = address.lower()
     variable_values = {"id": address, "pairAddress": address}
     result = gql_client_execute(query, variable_values=variable_values)
-    # __import__('pdb').set_trace()
     pair = result["pair"]
     date_price = result["pairDayDatas"]
     result = {"pair": pair, "date_price": date_price}
@@ -446,6 +444,33 @@ def get_pair_daily(address):
     date_price = data["date_price"]
     data["date_price"] = fix_type_pair_daily(date_price)
     return data
+
+
+@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+def get_pairs_raw():
+    """Raw pull of pairs data from TheGraph."""
+    request_string = (
+        """
+    {
+     pairs(first: 10, orderBy: reserveUSD, orderDirection: desc) {"""
+        + GQL_PAIR_PARAMETERS
+        + """
+     }
+    }
+    """
+    )
+    query = gql(request_string)
+    result = gql_client_execute(query)
+    result = result["pairs"]
+    return result
+
+
+def get_pairs():
+    pairs = get_pairs_raw()
+    pairs = deepcopy(pairs)
+    for i, pair in enumerate(pairs):
+        pairs[i] = fix_pair(pair)
+    return pairs
 
 
 def main():

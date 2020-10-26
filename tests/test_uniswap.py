@@ -13,6 +13,7 @@ from pools.test_utils import (
     GQL_LIQUIDITY_POSITIONS_RESPONSE,
     GQL_PAIR_DAY_DATA_RESPONSE,
     GQL_PAIR_INFO_RESPONSE,
+    GQL_PAIRS_RESPONSE,
     GQL_TOKEN_DAY_DATA_RESPONSE,
     patch_client_execute,
     patch_session_fetch_schema,
@@ -290,3 +291,60 @@ class TestLibUniswapRoi:
         with patch_client_execute(m_execute), patch_session_fetch_schema():
             data = self.uniswap.get_pair_daily(self.pair_address)
         assert data.keys() == {"pair", "date_price"}
+
+    def test_get_pairs(self):
+        m_execute = mock.Mock(return_value=GQL_PAIRS_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pairs()
+        assert m_execute.call_args_list == [mock.call(mock.ANY)]
+        assert data == [
+            {
+                "id": "0xc5ddc3e9d103b9dfdf32ae7096f1392cf88696f9",
+                "price_usd": Decimal("170814795.2673407741498589706"),
+                "reserve0": "2063243.37701238",
+                "reserve1": "78990431.276124196481995237",
+                "reserve_usd": Decimal("1155422539.501794978568848429540974"),
+                "symbol": "FCBTC-TWOB",
+                "token0": {
+                    "derivedETH": "1.384712347348822582084534991907731",
+                    "id": "0x4c6e796bbfe5eb37f9e3e0f66c009c8bf2a5f428",
+                    "name": "FC Bitcoin",
+                    "symbol": "FCBTC",
+                },
+                "token0Price": "0.02612016852775457641571125345392988",
+                "token1": {
+                    "derivedETH": "0",
+                    "id": "0x975ce667d59318e13da8acd3d2f534be5a64087b",
+                    "name": "The Whale of Blockchain",
+                    "symbol": "TWOB",
+                },
+                "token1Price": "38.284592189266595295457534649458",
+                "total_supply": Decimal("6.764183030477266625"),
+            },
+            {
+                "id": "0xbb2b8038a1640196fbe3e38816f3e67cba72d940",
+                "price_usd": Decimal("500825813.2783620728235026365"),
+                "reserve0": "26186.56317714",
+                "reserve1": "854243.645375842632389955",
+                "reserve_usd": Decimal("688815654.2814067218630940203749505"),
+                "symbol": "WBTC-WETH",
+                "token0": mock.ANY,
+                "token0Price": "0.03065467717423717613465000666387854",
+                "token1": mock.ANY,
+                "token1Price": "32.62144938979884788549711871554279",
+                "total_supply": Decimal("1.375359727911146499"),
+            },
+            {
+                "id": "0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
+                "price_usd": Decimal("50242455.85402316180433129715"),
+                "reserve0": "317611971.451732",
+                "reserve1": "786437.873958944776984124",
+                "reserve_usd": Decimal("634135172.5331979997924002078257594"),
+                "symbol": "USDC-WETH",
+                "token0": mock.ANY,
+                "token0Price": "403.861489850261997342877776919223",
+                "token1": mock.ANY,
+                "token1Price": "0.002476096446756450426416512921592668",
+                "total_supply": Decimal("12.621500317891400641"),
+            },
+        ]
