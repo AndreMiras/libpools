@@ -1,8 +1,9 @@
 # Change Log
 
 
-## [Unreleased]
+## [20201026]
   - Handle TheGraph `TransportQueryError`
+  - Fix crash on total supply zero
   - Pulls token daily, refs #6
 
 
