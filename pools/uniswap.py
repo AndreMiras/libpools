@@ -5,13 +5,13 @@ import os
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, DivisionByZero, InvalidOperation
 from pprint import pprint
 from typing import Dict
 
 from cachetools.func import ttl_cache
 from gql import Client, gql
-from gql.transport.exceptions import TransportServerError
+from gql.transport.exceptions import TransportQueryError, TransportServerError
 from gql.transport.requests import RequestsHTTPTransport
 from graphql import DocumentNode
 from web3.auto.infura import w3 as web3
@@ -55,7 +55,6 @@ totalSupply
 reserveUSD
 token0Price
 token1Price
-volumeUSD
 """
 
 
@@ -75,8 +74,8 @@ class TheGraphServiceDownException(UniswapRoiException):
 def gql_exceptions():
     try:
         yield
-    except TransportServerError as e:
-        raise TheGraphServiceDownException(e)
+    except (TransportServerError, TransportQueryError) as e:
+        raise TheGraphServiceDownException(e.args[0])
 
 
 def get_gql_client():
@@ -105,9 +104,7 @@ def get_eth_price():
 
 @ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
 def get_pair_info(contract_address):
-    request_string = (
-        "query getPairInfo($id: ID!) {" "pair(id: $id) {" + GQL_PAIR_PARAMETERS + "}}"
-    )
+    request_string = "query ($id: ID!) {pair(id: $id) {" + GQL_PAIR_PARAMETERS + "}}"
     query = gql(request_string)
     # note The Graph doesn't seem to like it in checksum format
     contract_address = contract_address.lower()
@@ -120,7 +117,7 @@ def get_pair_info(contract_address):
 def get_liquidity_positions(address):
     request_string = (
         """
-        query getLiquidityPositions($id: ID!) {
+        query ($id: ID!) {
           user(id: $id) {
             liquidityPositions (where: {liquidityTokenBalance_not: "0"}) {
               liquidityTokenBalance
@@ -181,7 +178,7 @@ def get_lp_transactions(address, pairs):
     )
     request_string = (
         """
-        query getMintsBurnsTransactions($address: Bytes! $pairs: [String!]) {
+        query ($address: Bytes! $pairs: [String!]) {
           mints(
             where: { to: $address pair_in: $pairs}, """
         + gql_order_by
@@ -235,7 +232,7 @@ def extract_pair_info(pair, balance, eth_price):
             tokens.append(
                 {
                     "symbol": token_symbol,
-                    "price": token_price,
+                    "price_usd": token_price,
                     "balance": token_balance,
                     "balance_usd": token_balance_usd,
                 }
@@ -246,9 +243,9 @@ def extract_pair_info(pair, balance, eth_price):
         "contract_address": contract_address,
         "staking_contract_address": staking_contract_address,
         "owner_balance": balance,
-        "pair_symbol": pair_symbol,
+        "symbol": pair_symbol,
         "total_supply": total_supply,
-        "token_price": pool_token_price,
+        "price_usd": pool_token_price,
         "share": share,
         "balance_usd": balance_usd,
         "tokens": tokens,
@@ -334,6 +331,149 @@ def portfolio(address):
         "balance_usd": balance_usd,
     }
     return data
+
+
+@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+def get_token_daily_raw(address):
+    """
+    Raw pull of token daily data from TheGraph.
+    Note this getting the daily for the token, not the pair.
+    """
+    request_string = """
+        query ($token: String!) {
+          tokenDayDatas(
+            orderBy: date,
+            orderDirection: desc,
+            first: 31,
+            where: {token: $token}
+          ) {
+            date
+            priceUSD
+          }
+        }
+      """
+    query = gql(request_string)
+    # note The Graph doesn't seem to like it in checksum format
+    address = address.lower()
+    variable_values = {"token": address}
+    result = gql_client_execute(query, variable_values=variable_values)
+    result = result["tokenDayDatas"]
+    return result
+
+
+def fix_type_token_daily(data):
+    """Makes sure the type of each fields is correct."""
+    data = deepcopy(data)
+    for data_day in data:
+        price_usd = data_day.pop("priceUSD")
+        data_day["price_usd"] = Decimal(price_usd)
+        data_day["date"] = datetime.utcfromtimestamp(int(data_day["date"]))
+    return data
+
+
+def get_token_daily(address):
+    data = get_token_daily_raw(address)
+    data = fix_type_token_daily(data)
+    return data
+
+
+@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+def get_pair_daily_raw(address):
+    """Raw pull of pair daily data from TheGraph."""
+    request_string = (
+        """
+        query ($pairAddress: Bytes!, $id: ID!) {
+          pair(id: $id) {"""
+        + GQL_PAIR_PARAMETERS
+        + """}
+          pairDayDatas(
+            orderBy: date,
+            orderDirection: desc,
+            first: 31,
+            where: {pairAddress: $pairAddress}
+          ) {
+            date
+            totalSupply
+            reserveUSD
+          }
+        }
+      """
+    )
+    query = gql(request_string)
+    # note The Graph doesn't seem to like it in checksum format
+    address = address.lower()
+    variable_values = {"id": address, "pairAddress": address}
+    result = gql_client_execute(query, variable_values=variable_values)
+    pair = result["pair"]
+    date_price = result["pairDayDatas"]
+    result = {"pair": pair, "date_price": date_price}
+    return result
+
+
+def fix_type_pair_daily(data):
+    """Makes sure the type of each fields is correct."""
+    data = deepcopy(data)
+    for data_day in data:
+        reserve_usd = Decimal(data_day.pop("reserveUSD"))
+        total_supply = Decimal(data_day.pop("totalSupply"))
+        try:
+            data_day["price_usd"] = reserve_usd / total_supply
+        except (InvalidOperation, DivisionByZero):
+            data_day["price_usd"] = Decimal(0)
+        data_day["date"] = datetime.utcfromtimestamp(int(data_day["date"]))
+    return data
+
+
+def fix_pair(pair):
+    pair = deepcopy(pair)
+    total_supply = Decimal(pair.pop("totalSupply"))
+    pair["total_supply"] = total_supply
+    reserve_usd = Decimal(pair.pop("reserveUSD"))
+    pair["reserve_usd"] = reserve_usd
+    pair_price_usd = reserve_usd / total_supply
+    pair["price_usd"] = pair_price_usd
+    pair_symbol = pair["token0"]["symbol"] + "-" + pair["token1"]["symbol"]
+    pair["symbol"] = pair_symbol
+    return pair
+
+
+def get_pair_daily(address):
+    data = get_pair_daily_raw(address)
+    # makes sure we don't mutate the cached reference
+    # or next cache hit we would retrieve that already mutated reference
+    data = deepcopy(data)
+    pair = data["pair"]
+    data["pair"] = fix_pair(pair)
+    date_price = data["date_price"]
+    data["date_price"] = fix_type_pair_daily(date_price)
+    return data
+
+
+@ttl_cache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
+def get_pairs_raw():
+    """Raw pull of pairs data from TheGraph."""
+    request_string = (
+        """
+    {
+     pairs(first: 10, orderBy: reserveUSD, orderDirection: desc) {"""
+        + GQL_PAIR_PARAMETERS
+        + """
+     }
+    }
+    """
+    )
+    query = gql(request_string)
+    result = gql_client_execute(query)
+    result = result["pairs"]
+    return result
+
+
+def get_pairs():
+    pairs = get_pairs_raw()
+    pairs = deepcopy(pairs)
+    for i, pair in enumerate(pairs):
+        pairs[i] = fix_pair(pair)
+    return pairs
 
 
 def main():

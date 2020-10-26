@@ -1,15 +1,21 @@
+from copy import deepcopy
+from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from unittest import mock
 
 import pytest
+from gql import gql
 from gql.transport.exceptions import TransportServerError
 from requests.models import Response
 
 from pools.test_utils import (
     GQL_ETH_PRICE_RESPONSE,
     GQL_LIQUIDITY_POSITIONS_RESPONSE,
+    GQL_PAIR_DAY_DATA_RESPONSE,
     GQL_PAIR_INFO_RESPONSE,
+    GQL_PAIRS_RESPONSE,
+    GQL_TOKEN_DAY_DATA_RESPONSE,
     patch_client_execute,
     patch_session_fetch_schema,
     patch_web3_contract,
@@ -24,9 +30,16 @@ def patch_session_request(content, status_code=200):
     return mock.patch("requests.Session.request", m_request)
 
 
+def patch_gql_transport_execute(m_execute):
+    return mock.patch("pools.uniswap.RequestsHTTPTransport.execute", m_execute)
+
+
 class TestLibUniswapRoi:
     address = "0x000000000000000000000000000000000000dEaD"
-    contract_address = "0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11"
+    # DAI
+    token_address = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+    # DAI-ETH
+    pair_address = "0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11"
 
     def setup_method(self):
         with mock.patch.dict("os.environ", {"WEB3_INFURA_PROJECT_ID": "1"}):
@@ -42,6 +55,8 @@ class TestLibUniswapRoi:
             self.uniswap.get_liquidity_positions,
             self.uniswap.get_pair_info,
             self.uniswap.get_staking_positions,
+            self.uniswap.get_token_daily_raw,
+            self.uniswap.get_pair_daily_raw,
         )
         for function in functions:
             function.cache_clear()
@@ -76,6 +91,20 @@ class TestLibUniswapRoi:
             )
         ]
 
+    def test_gql_client_execute_exception(self):
+        """
+        On `TransportQueryError` exception a custom
+        `TheGraphServiceDownException` should be re-raised.
+        """
+        request_string = '{bundle(id: "1") {ethPrice}}'
+        query = gql(request_string)
+        m_execute = mock.Mock(return_value=mock.Mock(errors=["Error1", "Error2"]))
+        with pytest.raises(
+            self.uniswap.TheGraphServiceDownException, match="Error1"
+        ), patch_session_fetch_schema(), patch_gql_transport_execute(m_execute):
+            self.uniswap.gql_client_execute(query)
+        assert m_execute.call_args_list == [mock.call(mock.ANY)]
+
     def test_get_eth_price(self):
         m_execute = mock.Mock(return_value=GQL_ETH_PRICE_RESPONSE)
         with patch_client_execute(m_execute), patch_session_fetch_schema():
@@ -106,11 +135,11 @@ class TestLibUniswapRoi:
     def test_get_pair_info(self):
         m_execute = mock.Mock(return_value=GQL_PAIR_INFO_RESPONSE)
         with patch_client_execute(m_execute), patch_session_fetch_schema():
-            pair_info = self.uniswap.get_pair_info(self.contract_address)
+            pair_info = self.uniswap.get_pair_info(self.pair_address)
         assert m_execute.call_args_list == [
             mock.call(
                 mock.ANY,
-                variable_values={"id": self.contract_address.lower()},
+                variable_values={"id": self.pair_address.lower()},
             )
         ]
         assert pair_info["pair"].keys() == {
@@ -158,3 +187,214 @@ class TestLibUniswapRoi:
             positions = self.uniswap.get_staking_positions(self.address)
         assert m_contract().functions.balanceOf().call.call_count == 4
         assert len(positions) == 0
+
+    def test_get_token_daily(self):
+        m_execute = mock.Mock(return_value=GQL_TOKEN_DAY_DATA_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_token_daily(self.token_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={"token": self.token_address.lower()},
+            )
+        ]
+        assert data == [
+            {
+                "date": datetime(2020, 10, 25, 0, 0),
+                "price_usd": Decimal("1.0037"),
+            },
+            {
+                "date": datetime(2020, 10, 24, 0, 0),
+                "price_usd": Decimal("1.0053"),
+            },
+            {
+                "date": datetime(2020, 10, 23, 0, 0),
+                "price_usd": Decimal("1.0063"),
+            },
+            {
+                "date": datetime(2020, 10, 22, 0, 0),
+                "price_usd": Decimal("1.0047"),
+            },
+            {
+                "date": datetime(2020, 10, 21, 0, 0),
+                "price_usd": Decimal("1.0059"),
+            },
+            {
+                "date": datetime(2020, 10, 20, 0, 0),
+                "price_usd": Decimal("1.0049"),
+            },
+        ]
+
+    def test_get_pair_daily(self):
+        m_execute = mock.Mock(return_value=GQL_PAIR_DAY_DATA_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pair_daily(self.pair_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={
+                    "id": self.pair_address.lower(),
+                    "pairAddress": self.pair_address.lower(),
+                },
+            )
+        ]
+        assert data == {
+            "pair": {
+                "id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                "price_usd": Decimal("47.63563936389575939010629216"),
+                "reserve_usd": Decimal("415905325.9588990528391949333277547"),
+                "symbol": "DAI-WETH",
+                "token0": {
+                    "derivedETH": "0.002482164437276671900656302172320963",
+                    "id": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                    "name": "Dai Stablecoin",
+                    "symbol": "DAI",
+                },
+                "token0Price": "402.87419519117702623465593526239",
+                "token1": {
+                    "derivedETH": "1",
+                    "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                    "name": "Wrapped Ether",
+                    "symbol": "WETH",
+                },
+                "token1Price": "0.002482164437276671900656302172320963",
+                "total_supply": Decimal("8730969.742669688720211513"),
+            },
+            "date_price": [
+                {
+                    "date": datetime(2020, 10, 25, 0, 0),
+                    "price_usd": Decimal("47.75974727766944294903865913"),
+                },
+                {
+                    "date": datetime(2020, 10, 24, 0, 0),
+                    "price_usd": Decimal("48.01749402379172222921539513"),
+                },
+                {
+                    "date": datetime(2020, 10, 23, 0, 0),
+                    "price_usd": Decimal("47.88345730523966278509766686"),
+                },
+                {
+                    "date": datetime(2020, 10, 22, 0, 0),
+                    "price_usd": Decimal("48.16869701768362998144941414"),
+                },
+                {
+                    "date": datetime(2020, 10, 21, 0, 0),
+                    "price_usd": Decimal("46.88813260917142369483660351"),
+                },
+                {
+                    "date": datetime(2020, 10, 20, 0, 0),
+                    "price_usd": Decimal("45.41583043969722591000008424"),
+                },
+            ],
+        }
+        # make a second call to make sure the cached data wasn't mutated
+        # from previous calls
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pair_daily(self.pair_address)
+        assert data.keys() == {"pair", "date_price"}
+
+    def test_get_pair_daily_total_supply_0(self):
+        """
+        Makes sure a total `totalSupply` of `0` in The Graph response
+        doesn't crash the library.
+        Note that when both numerator and denominator are zero the exception
+        is also different.
+        """
+        gql_pair_day_data_response = deepcopy(GQL_PAIR_DAY_DATA_RESPONSE)
+        gql_pair_day_data_response["pairDayDatas"] = [
+            {
+                "date": 1603584000,
+                "reserveUSD": "433176263.4363820888744425087438633",
+                "totalSupply": "0",
+            },
+            {
+                "date": 1603497600,
+                "reserveUSD": "435317156.2189432956087607791883648",
+                "totalSupply": "9065803.30917003335268362",
+            },
+            {
+                "date": 1603411200,
+                "reserveUSD": "0",
+                "totalSupply": "0",
+            },
+        ]
+        m_execute = mock.Mock(return_value=gql_pair_day_data_response)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pair_daily(self.pair_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={
+                    "id": self.pair_address.lower(),
+                    "pairAddress": self.pair_address.lower(),
+                },
+            )
+        ]
+        assert data == {
+            "pair": mock.ANY,
+            "date_price": [
+                {"date": datetime(2020, 10, 25, 0, 0), "price_usd": Decimal("0")},
+                {
+                    "date": datetime(2020, 10, 24, 0, 0),
+                    "price_usd": Decimal("48.01749402379172222921539513"),
+                },
+                {"date": datetime(2020, 10, 23, 0, 0), "price_usd": Decimal("0")},
+            ],
+        }
+
+    def test_get_pairs(self):
+        m_execute = mock.Mock(return_value=GQL_PAIRS_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pairs()
+        assert m_execute.call_args_list == [mock.call(mock.ANY)]
+        assert data == [
+            {
+                "id": "0xc5ddc3e9d103b9dfdf32ae7096f1392cf88696f9",
+                "price_usd": Decimal("170814795.2673407741498589706"),
+                "reserve0": "2063243.37701238",
+                "reserve1": "78990431.276124196481995237",
+                "reserve_usd": Decimal("1155422539.501794978568848429540974"),
+                "symbol": "FCBTC-TWOB",
+                "token0": {
+                    "derivedETH": "1.384712347348822582084534991907731",
+                    "id": "0x4c6e796bbfe5eb37f9e3e0f66c009c8bf2a5f428",
+                    "name": "FC Bitcoin",
+                    "symbol": "FCBTC",
+                },
+                "token0Price": "0.02612016852775457641571125345392988",
+                "token1": {
+                    "derivedETH": "0",
+                    "id": "0x975ce667d59318e13da8acd3d2f534be5a64087b",
+                    "name": "The Whale of Blockchain",
+                    "symbol": "TWOB",
+                },
+                "token1Price": "38.284592189266595295457534649458",
+                "total_supply": Decimal("6.764183030477266625"),
+            },
+            {
+                "id": "0xbb2b8038a1640196fbe3e38816f3e67cba72d940",
+                "price_usd": Decimal("500825813.2783620728235026365"),
+                "reserve0": "26186.56317714",
+                "reserve1": "854243.645375842632389955",
+                "reserve_usd": Decimal("688815654.2814067218630940203749505"),
+                "symbol": "WBTC-WETH",
+                "token0": mock.ANY,
+                "token0Price": "0.03065467717423717613465000666387854",
+                "token1": mock.ANY,
+                "token1Price": "32.62144938979884788549711871554279",
+                "total_supply": Decimal("1.375359727911146499"),
+            },
+            {
+                "id": "0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
+                "price_usd": Decimal("50242455.85402316180433129715"),
+                "reserve0": "317611971.451732",
+                "reserve1": "786437.873958944776984124",
+                "reserve_usd": Decimal("634135172.5331979997924002078257594"),
+                "symbol": "USDC-WETH",
+                "token0": mock.ANY,
+                "token0Price": "403.861489850261997342877776919223",
+                "token1": mock.ANY,
+                "token1Price": "0.002476096446756450426416512921592668",
+                "total_supply": Decimal("12.621500317891400641"),
+            },
+        ]

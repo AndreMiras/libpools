@@ -38,7 +38,6 @@ Upload:
 ```sh
 make release/upload
 ```
-This will also publish the alias meta package `setup_meta.py`.
 
 ## GitHub
 
