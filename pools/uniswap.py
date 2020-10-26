@@ -438,6 +438,9 @@ def fix_pair(pair):
 
 def get_pair_daily(address):
     data = get_pair_daily_raw(address)
+    # makes sure we don't mutate the cached reference
+    # or next cache hit we would retrieve that already mutated reference
+    data = deepcopy(data)
     pair = data["pair"]
     data["pair"] = fix_pair(pair)
     date_price = data["date_price"]

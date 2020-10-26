@@ -285,3 +285,8 @@ class TestLibUniswapRoi:
                 },
             ],
         }
+        # make a second call to make sure the cached data wasn't mutated
+        # from previous calls
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_pair_daily(self.pair_address)
+        assert data.keys() == {"pair", "date_price"}
