@@ -1,6 +1,10 @@
 # Change Log
 
 
+## [Unreleased]
+  - Auto publish to PyPI on release, refs #3
+
+
 ## [20201026]
   - Handle TheGraph `TransportQueryError`
   - Fix crash on total supply zero
@@ -14,11 +18,9 @@
 
 
 ## [20201023]
-
   - Setup CI, refs #1
   - Ship missing `abi.json`, refs #4
 
 
 ## [20201022]
-
   - Initial release
