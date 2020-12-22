@@ -1,6 +1,7 @@
 # Pools
 
 [![Tests](https://github.com/AndreMiras/libpools/workflows/Tests/badge.svg?branch=develop)](https://github.com/AndreMiras/libpools/actions?query=workflow%3ATests)
+[![Coverage Status](https://coveralls.io/repos/github/AndreMiras/libpools/badge.svg?branch=develop)](https://coveralls.io/github/AndreMiras/libpools?branch=develop)
 [![PyPI version](https://badge.fury.io/py/pools.svg)](https://badge.fury.io/py/pools)
 
 Python library for pools liquidity providers.

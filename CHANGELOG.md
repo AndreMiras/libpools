@@ -2,6 +2,7 @@
 
 
 ## [Unreleased]
+  - Setup coverage testing, refs #2
   - Auto publish to PyPI on release, refs #3
 
 
