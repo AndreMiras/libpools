@@ -469,7 +469,8 @@ class TestLibUniswapRoi:
                         "blockNumber": "11046485",
                         "id": (
                             "0x7f9080f8c72c0ec21ec7e1690b9"
-                            "4c52ebc4787bca66f2d154f6274..."),
+                            "4c52ebc4787bca66f2d154f6274..."
+                        ),
                         "timestamp": "1602581467",
                     },
                 },
@@ -485,9 +486,60 @@ class TestLibUniswapRoi:
                         "blockNumber": "10543065",
                         "id": (
                             "0x08d4f7eb1896d9ec25d2d36f722"
-                            "52cdb45f735b922fd1e515e1ce6..."),
+                            "52cdb45f735b922fd1e515e1ce6..."
+                        ),
                         "timestamp": "1595873620",
                     },
                 },
             ],
+        }
+
+    def test_extract_pair_info(self):
+        pair = {
+            "id": "0x0357347524debff4c783d0091b8c0101d16483b4",
+            "reserve0": "65433589.260222401644767305",
+            "reserve1": "0.026423215213923281",
+            "reserveUSD": "15.13802717784757628627128541760104",
+            "token0": {
+                "derivedETH": "0",
+                "id": "0xa507570aea52368f88d4ec11c1f97851270cd117",
+                "name": "SojuToken",
+                "symbol": "Soju",
+            },
+            "token0Price": "2476367418.971149363049022948777915",
+            "token1": {
+                "derivedETH": "1",
+                "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "name": "Wrapped Ether",
+                "symbol": "WETH",
+            },
+            "token1Price": "0.0000000004038172980063950624361315799192937",
+            "totalSupply": "1266.682478365215644063",
+        }
+        balance = Decimal("12.34")
+        eth_price = Decimal("321.123")
+        pair_info = self.uniswap.extract_pair_info(pair, balance, eth_price)
+        assert pair_info == {
+            "balance_usd": Decimal("0.08266172634844539683211792027"),
+            "contract_address": "0x0357347524debff4c783d0091b8c0101d16483b4",
+            "owner_balance": Decimal("12.34"),
+            "price_usd": Decimal("0.01195092490533599340577635533"),
+            "share": Decimal("0.9741983654756196260478308400"),
+            "staking_contract_address": None,
+            "symbol": "Soju-WETH",
+            "tokens": [
+                {
+                    "balance": Decimal("637452.9570451172247361995822"),
+                    "balance_usd": Decimal("0E-25"),
+                    "price_usd": Decimal("0.000"),
+                    "symbol": "Soju",
+                },
+                {
+                    "balance": Decimal("0.0002574145307201458532466311048"),
+                    "balance_usd": Decimal("0.08266172634844539683211792027"),
+                    "price_usd": Decimal("321.123"),
+                    "symbol": "WETH",
+                },
+            ],
+            "total_supply": Decimal("1266.682478365215644063"),
         }
