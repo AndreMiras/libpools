@@ -12,6 +12,7 @@ from requests.models import Response
 from pools.test_utils import (
     GQL_ETH_PRICE_RESPONSE,
     GQL_LIQUIDITY_POSITIONS_RESPONSE,
+    GQL_MINTS_BURNS_TX_RESPONSE,
     GQL_PAIR_DAY_DATA_RESPONSE,
     GQL_PAIR_INFO_RESPONSE,
     GQL_PAIRS_RESPONSE,
@@ -439,3 +440,54 @@ class TestLibUniswapRoi:
                 "total_supply": Decimal("12.621500317891400641"),
             },
         ]
+
+    def test_get_lp_transactions(self):
+        m_execute = mock.Mock(return_value=GQL_MINTS_BURNS_TX_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_lp_transactions(self.address, self.pair_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={
+                    "address": self.address.lower(),
+                    "pairs": self.pair_address,
+                },
+            )
+        ]
+        assert data == {
+            "burns": [],
+            "mints": [
+                {
+                    "amount0": "15860000",
+                    "amount1": "600",
+                    "amountUSD": "229661.2283368789267441858327732994",
+                    "liquidity": "97549.987186057589967631",
+                    "pair": {"id": "0xf227e97616063a0ea4143744738f9def2aa06743"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dead",
+                    "transaction": {
+                        "blockNumber": "11046485",
+                        "id": (
+                            "0x7f9080f8c72c0ec21ec7e1690b9"
+                            "4c52ebc4787bca66f2d154f6274..."),
+                        "timestamp": "1602581467",
+                    },
+                },
+                {
+                    "amount0": "23188460.096098020166920577",
+                    "amount1": "1649.824913049740795957",
+                    "amountUSD": "531596.1714480471128118203674972062",
+                    "liquidity": "195593.709412655447555532",
+                    "pair": {"id": "0xc822d85d2dcedfaf2cefcf69dbd5588e7ffc9f10"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dead",
+                    "transaction": {
+                        "blockNumber": "10543065",
+                        "id": (
+                            "0x08d4f7eb1896d9ec25d2d36f722"
+                            "52cdb45f735b922fd1e515e1ce6..."),
+                        "timestamp": "1595873620",
+                    },
+                },
+            ],
+        }
