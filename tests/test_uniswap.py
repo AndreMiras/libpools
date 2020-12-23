@@ -188,6 +188,47 @@ class TestLibUniswapRoi:
         assert m_contract().functions.balanceOf().call.call_count == 4
         assert len(positions) == 0
 
+    def test_get_staking_positions_balance(self):
+        m_contract = mock.Mock()
+        m_contract().functions.balanceOf().call.side_effect = [1, 0, 0, 0]
+        m_execute = mock.Mock(return_value=GQL_PAIR_INFO_RESPONSE)
+        with patch_web3_contract(m_contract), patch_client_execute(
+            m_execute
+        ), patch_session_fetch_schema():
+            positions = self.uniswap.get_staking_positions(self.address)
+        assert m_execute.call_count == 1
+        assert m_contract().functions.balanceOf().call.call_count == 4
+        assert len(positions) == 1
+        assert positions == [
+            {
+                "pair": {
+                    "id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "reserve0": "202079477.297395245222385992",
+                    "reserve1": "554825.663433614212350256",
+                    "reserveUSD": "438900192.169828320338927756595308",
+                    "token0": {
+                        "derivedETH": "0.002745581445745187399781487618568183",
+                        "id": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                        "name": "Dai Stablecoin",
+                        "symbol": "DAI",
+                    },
+                    "token0Price": "364.2215755608687365540815738979592",
+                    "token1": {
+                        "derivedETH": "1",
+                        "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        "name": "Wrapped Ether",
+                        "symbol": "WETH",
+                    },
+                    "token1Price": "0.002745581445745187399781487618568183",
+                    "totalSupply": "8967094.518364383041536096",
+                    "staking_contract_address": (
+                        "0xa1484C3aa22a66C62b77E0AE78E15258bd0cB711"
+                    ),
+                },
+                "liquidityTokenBalance": Decimal("1E-18"),
+            }
+        ]
+
     def test_get_token_daily(self):
         m_execute = mock.Mock(return_value=GQL_TOKEN_DAY_DATA_RESPONSE)
         with patch_client_execute(m_execute), patch_session_fetch_schema():
