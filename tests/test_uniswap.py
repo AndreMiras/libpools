@@ -543,3 +543,153 @@ class TestLibUniswapRoi:
             ],
             "total_supply": Decimal("1266.682478365215644063"),
         }
+
+    def test_clean_transactions(self):
+        mints_burns = {
+            "burns": [
+                {
+                    "amount0": "1378.90",
+                    "amount1": "3.94",
+                    "amountUSD": "2762.05",
+                    "liquidity": "53.44",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "blockNumber": "11282090",
+                        "timestamp": "1605704575",
+                    },
+                },
+                {
+                    "amount0": "531.21",
+                    "amount1": "2.17",
+                    "amountUSD": "1066.42",
+                    "liquidity": "33.56",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "blockNumber": "10325381",
+                        "timestamp": "1592960274",
+                    },
+                },
+            ],
+            "mints": [
+                {
+                    "amount0": "130.28",
+                    "amount1": "8.57",
+                    "amountUSD": "6039.62",
+                    "liquidity": "24.11",
+                    "pair": {"id": "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "blockNumber": "10945917",
+                        "timestamp": "1601227586",
+                    },
+                },
+                {
+                    "amount0": "1142.83",
+                    "amount1": "3.11",
+                    "amountUSD": "2319.12",
+                    "liquidity": "49.86",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "blockNumber": "10882468",
+                        "timestamp": "1600381572",
+                    },
+                },
+                {
+                    "amount0": "578.02",
+                    "amount1": "2.65",
+                    "amountUSD": "1157.09",
+                    "liquidity": "37.99",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0xf164fc0ec4e93095b804a4795bbe1e041497b92a",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "blockNumber": "10262368",
+                        "timestamp": "1592117410",
+                    },
+                },
+            ],
+        }
+        transaction_dict = self.uniswap.clean_transactions(mints_burns)
+        assert transaction_dict == {
+            "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7": [
+                {
+                    "amount0": Decimal("130.28"),
+                    "amount1": Decimal("8.57"),
+                    "amountUSD": Decimal("6039.62"),
+                    "liquidity": Decimal("24.11"),
+                    "pair": {"id": "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "block_number": 10945917,
+                        "timestamp": datetime(2020, 9, 27, 17, 26, 26),
+                    },
+                    "type": "mint",
+                }
+            ],
+            "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11": [
+                {
+                    "amount0": Decimal("578.02"),
+                    "amount1": Decimal("2.65"),
+                    "amountUSD": Decimal("1157.09"),
+                    "liquidity": Decimal("37.99"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0xf164fc0ec4e93095b804a4795bbe1e041497b92a",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "block_number": 10262368,
+                        "timestamp": datetime(2020, 6, 14, 6, 50, 10),
+                    },
+                    "type": "mint",
+                },
+                {
+                    "amount0": Decimal("531.21"),
+                    "amount1": Decimal("2.17"),
+                    "amountUSD": Decimal("1066.42"),
+                    "liquidity": Decimal("33.56"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "block_number": 10325381,
+                        "timestamp": datetime(2020, 6, 24, 0, 57, 54),
+                    },
+                    "type": "burn",
+                },
+                {
+                    "amount0": Decimal("1142.83"),
+                    "amount1": Decimal("3.11"),
+                    "amountUSD": Decimal("2319.12"),
+                    "liquidity": Decimal("49.86"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "block_number": 10882468,
+                        "timestamp": datetime(2020, 9, 17, 22, 26, 12),
+                    },
+                    "type": "mint",
+                },
+                {
+                    "amount0": Decimal("1378.90"),
+                    "amount1": Decimal("3.94"),
+                    "amountUSD": Decimal("2762.05"),
+                    "liquidity": Decimal("53.44"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "block_number": 11282090,
+                        "timestamp": datetime(2020, 11, 18, 13, 2, 55),
+                    },
+                    "type": "burn",
+                },
+            ],
+        }
