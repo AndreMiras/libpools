@@ -18,6 +18,9 @@ from pools.test_utils import (
     GQL_PAIRS_RESPONSE,
     GQL_TOKEN_DAY_DATA_RESPONSE,
     patch_client_execute,
+    patch_get_liquidity_positions,
+    patch_get_lp_transactions,
+    patch_get_staking_positions,
     patch_session_fetch_schema,
     patch_web3_contract,
 )
@@ -692,4 +695,28 @@ class TestLibUniswapRoi:
                     "type": "burn",
                 },
             ],
+        }
+
+    def test_portfolio(self):
+        """Basic portfolio testing."""
+        positions = []
+        mints_burns = {
+            "mints": [],
+            "burns": [],
+        }
+        with patch_get_liquidity_positions(
+            positions
+        ) as m_get_liquidity_positions, patch_get_staking_positions(
+            positions
+        ) as m_get_staking_positions, patch_get_lp_transactions(
+            mints_burns
+        ) as m_get_lp_transactions:
+            data = self.uniswap.portfolio(self.address)
+        assert m_get_liquidity_positions.call_args_list == [mock.call(self.address)]
+        assert m_get_staking_positions.call_args_list == [mock.call(self.address)]
+        assert m_get_lp_transactions.call_args_list == [mock.call(self.address, [])]
+        assert data == {
+            "address": "0x000000000000000000000000000000000000dEaD",
+            "pairs": [],
+            "balance_usd": 0,
         }
