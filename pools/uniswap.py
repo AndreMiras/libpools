@@ -483,6 +483,7 @@ def main():
     address = args.address
     data = portfolio(address)
     pprint(data)
+    return data
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@ from pools.test_utils import (
     patch_get_liquidity_positions,
     patch_get_lp_transactions,
     patch_get_staking_positions,
+    patch_portfolio,
     patch_session_fetch_schema,
     patch_web3_contract,
 )
@@ -952,3 +953,8 @@ class TestLibUniswapRoi:
                 },
             ],
         }
+
+    def test_main(self):
+        with patch_portfolio() as m_portfolio, pytest.raises(SystemExit):
+            self.uniswap.main()
+        assert m_portfolio.call_args_list == []

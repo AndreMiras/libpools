@@ -278,3 +278,8 @@ def patch_get_lp_transactions(mints_burns):
 
 def patch_get_eth_price(price):
     return mock.patch("pools.uniswap.get_eth_price", return_value=price)
+
+
+def patch_portfolio(data=None):
+    data = data or {}
+    return mock.patch("pools.uniswap.portfolio", return_value=data)
