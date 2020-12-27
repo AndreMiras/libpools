@@ -954,6 +954,12 @@ class TestLibUniswapRoi:
             ],
         }
 
+    def test_portfolio_invalid_address(self):
+        """Invalid addresses are handled with an explicit exception."""
+        address = "0xInvalidAdress"
+        with pytest.raises(self.uniswap.InvalidAddressException, match=address):
+            self.uniswap.portfolio(address)
+
     def test_main(self):
         with patch_portfolio() as m_portfolio, pytest.raises(SystemExit):
             self.uniswap.main()
