@@ -24,6 +24,7 @@ from pools.test_utils import (
     patch_get_staking_positions,
     patch_portfolio,
     patch_session_fetch_schema,
+    patch_sys_argv,
     patch_web3_contract,
 )
 
@@ -961,6 +962,16 @@ class TestLibUniswapRoi:
             self.uniswap.portfolio(address)
 
     def test_main(self):
-        with patch_portfolio() as m_portfolio, pytest.raises(SystemExit):
+        argv = ["pools/uniswap.py"]
+        exit_code = 2
+        with patch_sys_argv(argv), patch_portfolio() as m_portfolio, pytest.raises(
+            SystemExit, match=str(exit_code)
+        ):
             self.uniswap.main()
         assert m_portfolio.call_args_list == []
+
+    def test_main_argv(self):
+        argv = ["pools/uniswap.py", self.address]
+        with patch_sys_argv(argv), patch_portfolio() as m_portfolio:
+            self.uniswap.main()
+        assert m_portfolio.call_args_list == [mock.call(self.address)]

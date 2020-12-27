@@ -283,3 +283,7 @@ def patch_get_eth_price(price):
 def patch_portfolio(data=None):
     data = data or {}
     return mock.patch("pools.uniswap.portfolio", return_value=data)
+
+
+def patch_sys_argv(argv):
+    return mock.patch("sys.argv", argv)
