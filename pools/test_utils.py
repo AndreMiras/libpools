@@ -274,3 +274,7 @@ def patch_get_staking_positions(positions=None):
 
 def patch_get_lp_transactions(mints_burns):
     return mock.patch("pools.uniswap.get_lp_transactions", return_value=mints_burns)
+
+
+def patch_get_eth_price(price):
+    return mock.patch("pools.uniswap.get_eth_price", return_value=price)
