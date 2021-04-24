@@ -44,3 +44,6 @@ make release/upload
 Got to GitHub [Release/Tags](https://github.com/AndreMiras/libpools/tags), click "Add release notes" for the tag just created.
 Add the tag name in the "Release title" field and the relevant CHANGELOG.md section in the "Describe this release" textarea field.
 Finally, attach the generated APK release file and click "Publish release".
+
+## Post release
+Update the [setup.py](/setup.py) `version string` with `YYYYMMDD.dev0`.

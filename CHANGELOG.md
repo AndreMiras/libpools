@@ -1,7 +1,7 @@
 # Change Log
 
 
-## [Unreleased]
+## [20210424]
   - Python 3.9 support
   - Setup coverage testing, refs #2
   - Auto publish to PyPI on release, refs #3
