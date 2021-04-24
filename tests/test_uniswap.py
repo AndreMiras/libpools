@@ -12,12 +12,19 @@ from requests.models import Response
 from pools.test_utils import (
     GQL_ETH_PRICE_RESPONSE,
     GQL_LIQUIDITY_POSITIONS_RESPONSE,
+    GQL_MINTS_BURNS_TX_RESPONSE,
     GQL_PAIR_DAY_DATA_RESPONSE,
     GQL_PAIR_INFO_RESPONSE,
     GQL_PAIRS_RESPONSE,
     GQL_TOKEN_DAY_DATA_RESPONSE,
     patch_client_execute,
+    patch_get_eth_price,
+    patch_get_liquidity_positions,
+    patch_get_lp_transactions,
+    patch_get_staking_positions,
+    patch_portfolio,
     patch_session_fetch_schema,
+    patch_sys_argv,
     patch_web3_contract,
 )
 
@@ -57,6 +64,7 @@ class TestLibUniswapRoi:
             self.uniswap.get_staking_positions,
             self.uniswap.get_token_daily_raw,
             self.uniswap.get_pair_daily_raw,
+            self.uniswap.portfolio,
         )
         for function in functions:
             function.cache_clear()
@@ -187,6 +195,47 @@ class TestLibUniswapRoi:
             positions = self.uniswap.get_staking_positions(self.address)
         assert m_contract().functions.balanceOf().call.call_count == 4
         assert len(positions) == 0
+
+    def test_get_staking_positions_balance(self):
+        m_contract = mock.Mock()
+        m_contract().functions.balanceOf().call.side_effect = [1, 0, 0, 0]
+        m_execute = mock.Mock(return_value=GQL_PAIR_INFO_RESPONSE)
+        with patch_web3_contract(m_contract), patch_client_execute(
+            m_execute
+        ), patch_session_fetch_schema():
+            positions = self.uniswap.get_staking_positions(self.address)
+        assert m_execute.call_count == 1
+        assert m_contract().functions.balanceOf().call.call_count == 4
+        assert len(positions) == 1
+        assert positions == [
+            {
+                "pair": {
+                    "id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "reserve0": "202079477.297395245222385992",
+                    "reserve1": "554825.663433614212350256",
+                    "reserveUSD": "438900192.169828320338927756595308",
+                    "token0": {
+                        "derivedETH": "0.002745581445745187399781487618568183",
+                        "id": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                        "name": "Dai Stablecoin",
+                        "symbol": "DAI",
+                    },
+                    "token0Price": "364.2215755608687365540815738979592",
+                    "token1": {
+                        "derivedETH": "1",
+                        "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        "name": "Wrapped Ether",
+                        "symbol": "WETH",
+                    },
+                    "token1Price": "0.002745581445745187399781487618568183",
+                    "totalSupply": "8967094.518364383041536096",
+                    "staking_contract_address": (
+                        "0xa1484C3aa22a66C62b77E0AE78E15258bd0cB711"
+                    ),
+                },
+                "liquidityTokenBalance": Decimal("1E-18"),
+            }
+        ]
 
     def test_get_token_daily(self):
         m_execute = mock.Mock(return_value=GQL_TOKEN_DAY_DATA_RESPONSE)
@@ -398,3 +447,531 @@ class TestLibUniswapRoi:
                 "total_supply": Decimal("12.621500317891400641"),
             },
         ]
+
+    def test_get_lp_transactions(self):
+        m_execute = mock.Mock(return_value=GQL_MINTS_BURNS_TX_RESPONSE)
+        with patch_client_execute(m_execute), patch_session_fetch_schema():
+            data = self.uniswap.get_lp_transactions(self.address, self.pair_address)
+        assert m_execute.call_args_list == [
+            mock.call(
+                mock.ANY,
+                variable_values={
+                    "address": self.address.lower(),
+                    "pairs": self.pair_address,
+                },
+            )
+        ]
+        assert data == {
+            "burns": [],
+            "mints": [
+                {
+                    "amount0": "15860000",
+                    "amount1": "600",
+                    "amountUSD": "229661.2283368789267441858327732994",
+                    "liquidity": "97549.987186057589967631",
+                    "pair": {"id": "0xf227e97616063a0ea4143744738f9def2aa06743"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dead",
+                    "transaction": {
+                        "blockNumber": "11046485",
+                        "id": (
+                            "0x7f9080f8c72c0ec21ec7e1690b9"
+                            "4c52ebc4787bca66f2d154f6274..."
+                        ),
+                        "timestamp": "1602581467",
+                    },
+                },
+                {
+                    "amount0": "23188460.096098020166920577",
+                    "amount1": "1649.824913049740795957",
+                    "amountUSD": "531596.1714480471128118203674972062",
+                    "liquidity": "195593.709412655447555532",
+                    "pair": {"id": "0xc822d85d2dcedfaf2cefcf69dbd5588e7ffc9f10"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dead",
+                    "transaction": {
+                        "blockNumber": "10543065",
+                        "id": (
+                            "0x08d4f7eb1896d9ec25d2d36f722"
+                            "52cdb45f735b922fd1e515e1ce6..."
+                        ),
+                        "timestamp": "1595873620",
+                    },
+                },
+            ],
+        }
+
+    def test_extract_pair_info(self):
+        pair = {
+            "id": "0x0357347524debff4c783d0091b8c0101d16483b4",
+            "reserve0": "65433589.260222401644767305",
+            "reserve1": "0.026423215213923281",
+            "reserveUSD": "15.13802717784757628627128541760104",
+            "token0": {
+                "derivedETH": "0",
+                "id": "0xa507570aea52368f88d4ec11c1f97851270cd117",
+                "name": "SojuToken",
+                "symbol": "Soju",
+            },
+            "token0Price": "2476367418.971149363049022948777915",
+            "token1": {
+                "derivedETH": "1",
+                "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "name": "Wrapped Ether",
+                "symbol": "WETH",
+            },
+            "token1Price": "0.0000000004038172980063950624361315799192937",
+            "totalSupply": "1266.682478365215644063",
+        }
+        balance = Decimal("12.34")
+        eth_price = Decimal("321.123")
+        pair_info = self.uniswap.extract_pair_info(pair, balance, eth_price)
+        assert pair_info == {
+            "balance_usd": Decimal("0.08266172634844539683211792027"),
+            "contract_address": "0x0357347524debff4c783d0091b8c0101d16483b4",
+            "owner_balance": Decimal("12.34"),
+            "price_usd": Decimal("0.01195092490533599340577635533"),
+            "share": Decimal("0.9741983654756196260478308400"),
+            "staking_contract_address": None,
+            "symbol": "Soju-WETH",
+            "tokens": [
+                {
+                    "balance": Decimal("637452.9570451172247361995822"),
+                    "balance_usd": Decimal("0E-25"),
+                    "price_usd": Decimal("0.000"),
+                    "symbol": "Soju",
+                },
+                {
+                    "balance": Decimal("0.0002574145307201458532466311048"),
+                    "balance_usd": Decimal("0.08266172634844539683211792027"),
+                    "price_usd": Decimal("321.123"),
+                    "symbol": "WETH",
+                },
+            ],
+            "total_supply": Decimal("1266.682478365215644063"),
+        }
+
+    def test_clean_transactions(self):
+        mints_burns = {
+            "burns": [
+                {
+                    "amount0": "1378.90",
+                    "amount1": "3.94",
+                    "amountUSD": "2762.05",
+                    "liquidity": "53.44",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "blockNumber": "11282090",
+                        "timestamp": "1605704575",
+                    },
+                },
+                {
+                    "amount0": "531.21",
+                    "amount1": "2.17",
+                    "amountUSD": "1066.42",
+                    "liquidity": "33.56",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "blockNumber": "10325381",
+                        "timestamp": "1592960274",
+                    },
+                },
+            ],
+            "mints": [
+                {
+                    "amount0": "130.28",
+                    "amount1": "8.57",
+                    "amountUSD": "6039.62",
+                    "liquidity": "24.11",
+                    "pair": {"id": "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "blockNumber": "10945917",
+                        "timestamp": "1601227586",
+                    },
+                },
+                {
+                    "amount0": "1142.83",
+                    "amount1": "3.11",
+                    "amountUSD": "2319.12",
+                    "liquidity": "49.86",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "blockNumber": "10882468",
+                        "timestamp": "1600381572",
+                    },
+                },
+                {
+                    "amount0": "578.02",
+                    "amount1": "2.65",
+                    "amountUSD": "1157.09",
+                    "liquidity": "37.99",
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0xf164fc0ec4e93095b804a4795bbe1e041497b92a",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "blockNumber": "10262368",
+                        "timestamp": "1592117410",
+                    },
+                },
+            ],
+        }
+        transaction_dict = self.uniswap.clean_transactions(mints_burns)
+        assert transaction_dict == {
+            "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7": [
+                {
+                    "amount0": Decimal("130.28"),
+                    "amount1": Decimal("8.57"),
+                    "amountUSD": Decimal("6039.62"),
+                    "liquidity": Decimal("24.11"),
+                    "pair": {"id": "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "block_number": 10945917,
+                        "timestamp": datetime(2020, 9, 27, 17, 26, 26),
+                    },
+                    "type": "mint",
+                }
+            ],
+            "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11": [
+                {
+                    "amount0": Decimal("578.02"),
+                    "amount1": Decimal("2.65"),
+                    "amountUSD": Decimal("1157.09"),
+                    "liquidity": Decimal("37.99"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0xf164fc0ec4e93095b804a4795bbe1e041497b92a",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "block_number": 10262368,
+                        "timestamp": datetime(2020, 6, 14, 6, 50, 10),
+                    },
+                    "type": "mint",
+                },
+                {
+                    "amount0": Decimal("531.21"),
+                    "amount1": Decimal("2.17"),
+                    "amountUSD": Decimal("1066.42"),
+                    "liquidity": Decimal("33.56"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "block_number": 10325381,
+                        "timestamp": datetime(2020, 6, 24, 0, 57, 54),
+                    },
+                    "type": "burn",
+                },
+                {
+                    "amount0": Decimal("1142.83"),
+                    "amount1": Decimal("3.11"),
+                    "amountUSD": Decimal("2319.12"),
+                    "liquidity": Decimal("49.86"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dEaD",
+                    "transaction": {
+                        "block_number": 10882468,
+                        "timestamp": datetime(2020, 9, 17, 22, 26, 12),
+                    },
+                    "type": "mint",
+                },
+                {
+                    "amount0": Decimal("1378.90"),
+                    "amount1": Decimal("3.94"),
+                    "amountUSD": Decimal("2762.05"),
+                    "liquidity": Decimal("53.44"),
+                    "pair": {"id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"},
+                    "sender": "0x000000000000000000000000000000000000dEaD",
+                    "to": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "transaction": {
+                        "block_number": 11282090,
+                        "timestamp": datetime(2020, 11, 18, 13, 2, 55),
+                    },
+                    "type": "burn",
+                },
+            ],
+        }
+
+    def test_portfolio(self):
+        """Basic portfolio testing."""
+        price = 300
+        positions = []
+        mints_burns = {
+            "mints": [],
+            "burns": [],
+        }
+        with patch_get_liquidity_positions(
+            positions
+        ) as m_get_liquidity_positions, patch_get_staking_positions(
+            positions
+        ) as m_get_staking_positions, patch_get_lp_transactions(
+            mints_burns
+        ) as m_get_lp_transactions, patch_get_eth_price(
+            price
+        ) as m_get_eth_price:
+            data = self.uniswap.portfolio(self.address)
+        assert m_get_liquidity_positions.call_args_list == [mock.call(self.address)]
+        assert m_get_staking_positions.call_args_list == [mock.call(self.address)]
+        assert m_get_lp_transactions.call_args_list == [mock.call(self.address, [])]
+        assert m_get_eth_price.call_args_list == [mock.call()]
+        assert data == {
+            "address": "0x000000000000000000000000000000000000dEaD",
+            "pairs": [],
+            "balance_usd": 0,
+        }
+
+    def test_portfolio_positions(self):
+        """Portfolio with positions testing."""
+        price = 300
+        liquidity_positions = [
+            {
+                "liquidityTokenBalance": "65.417152403305745713",
+                "pair": {
+                    "id": "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7",
+                    "reserve0": "98885.875625086259763385",
+                    "reserve1": "3065.622053657196599417",
+                    "reserveUSD": "2755342.621143665226669595853113687",
+                    "token0": {
+                        "derivedETH": "0.03100161710940527870014085576340626",
+                        "id": "0x0ae055097c6d159879521c384f1d2123d1f195e6",
+                        "name": "STAKE",
+                        "symbol": "STAKE",
+                    },
+                    "token0Price": "32.25638186779036564112849328358329",
+                    "token1": {
+                        "derivedETH": "1",
+                        "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        "name": "Wrapped Ether",
+                        "symbol": "WETH",
+                    },
+                    "token1Price": "0.03100161710940527870014085576340626",
+                    "totalSupply": "12132.548610419336726782",
+                },
+            },
+            {
+                "liquidityTokenBalance": "123.321",
+                "pair": {
+                    "id": "0xd3d2e2692501a5c9ca623199d38826e513033a17",
+                    "reserve0": "7795837.60970437134772868",
+                    "reserve1": "64207.224033613483840543",
+                    "reserveUSD": "48844843.23332099147592073020832003",
+                    "token0": {
+                        "derivedETH": "0.008236090494456606334236333082884844",
+                        "id": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+                        "name": "Uniswap",
+                        "symbol": "UNI",
+                    },
+                    "token0Price": "121.4168300692010713970072022761557",
+                    "token1": {
+                        "derivedETH": "1",
+                        "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        "name": "Wrapped Ether",
+                        "symbol": "WETH",
+                    },
+                    "token1Price": "0.008236090494456606334236333082884844",
+                    "totalSupply": "383443.946054848107867734",
+                },
+            },
+        ]
+        staking_positions = [
+            {
+                "pair": {
+                    "id": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "reserve0": "202079477.297395245222385992",
+                    "reserve1": "554825.663433614212350256",
+                    "reserveUSD": "438900192.169828320338927756595308",
+                    "token0": {
+                        "derivedETH": "0.002745581445745187399781487618568183",
+                        "id": "0x6b175474e89094c44da98b954eedeac495271d0f",
+                        "name": "Dai Stablecoin",
+                        "symbol": "DAI",
+                    },
+                    "token0Price": "364.2215755608687365540815738979592",
+                    "token1": {
+                        "derivedETH": "1",
+                        "id": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                        "name": "Wrapped Ether",
+                        "symbol": "WETH",
+                    },
+                    "token1Price": "0.002745581445745187399781487618568183",
+                    "totalSupply": "8967094.518364383041536096",
+                    "staking_contract_address": (
+                        "0xa1484C3aa22a66C62b77E0AE78E15258bd0cB711"
+                    ),
+                },
+                "liquidityTokenBalance": Decimal("1E-18"),
+            }
+        ]
+        mints_burns = {
+            "burns": [],
+            "mints": [
+                {
+                    "amount0": "15860000",
+                    "amount1": "600",
+                    "amountUSD": "229661.2283368789267441858327732994",
+                    "liquidity": "97549.987186057589967631",
+                    "pair": {"id": "0xf227e97616063a0ea4143744738f9def2aa06743"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dead",
+                    "transaction": {
+                        "blockNumber": "11046485",
+                        "id": (
+                            "0x7f9080f8c72c0ec21ec7e1690b9"
+                            "4c52ebc4787bca66f2d154f6274..."
+                        ),
+                        "timestamp": "1602581467",
+                    },
+                },
+                {
+                    "amount0": "23188460.096098020166920577",
+                    "amount1": "1649.824913049740795957",
+                    "amountUSD": "531596.1714480471128118203674972062",
+                    "liquidity": "195593.709412655447555532",
+                    "pair": {"id": "0xc822d85d2dcedfaf2cefcf69dbd5588e7ffc9f10"},
+                    "sender": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+                    "to": "0x000000000000000000000000000000000000dead",
+                    "transaction": {
+                        "blockNumber": "10543065",
+                        "id": (
+                            "0x08d4f7eb1896d9ec25d2d36f722"
+                            "52cdb45f735b922fd1e515e1ce6..."
+                        ),
+                        "timestamp": "1595873620",
+                    },
+                },
+            ],
+        }
+        with patch_get_liquidity_positions(
+            liquidity_positions
+        ) as m_get_liquidity_positions, patch_get_staking_positions(
+            staking_positions
+        ) as m_get_staking_positions, patch_get_lp_transactions(
+            mints_burns
+        ) as m_get_lp_transactions, patch_get_eth_price(
+            price
+        ) as m_get_eth_price:
+            data = self.uniswap.portfolio(self.address)
+        assert m_get_liquidity_positions.call_args_list == [mock.call(self.address)]
+        assert m_get_staking_positions.call_args_list == [mock.call(self.address)]
+        pair_addresses = [
+            "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7",
+            "0xd3d2e2692501a5c9ca623199d38826e513033a17",
+            "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+        ]
+        assert m_get_lp_transactions.call_args_list == [
+            mock.call(self.address, pair_addresses)
+        ]
+        assert m_get_eth_price.call_args_list == [mock.call()]
+        assert data == {
+            "address": "0x000000000000000000000000000000000000dEaD",
+            "balance_usd": Decimal("22307.63671390229301193316137"),
+            "pairs": [
+                {
+                    "balance_usd": Decimal("9917.665522780703135364231718"),
+                    "contract_address": "0x3b3d4eefdc603b232907a7f3d0ed1eea5c62b5f7",
+                    "owner_balance": Decimal("65.417152403305745713"),
+                    "price_usd": Decimal("227.1033654690984538946436433"),
+                    "share": Decimal("0.5391872268875643568885981312"),
+                    "staking_contract_address": None,
+                    "symbol": "STAKE-WETH",
+                    "tokens": [
+                        {
+                            "balance": Decimal("533.1800105663885501708056239"),
+                            "balance_usd": Decimal("4958.832761390351567682115858"),
+                            "price_usd": Decimal("9.300485132821583610042256729"),
+                            "symbol": "STAKE",
+                        },
+                        {
+                            "balance": Decimal("16.52944253796783855894038620"),
+                            "balance_usd": Decimal("4958.832761390351567682115860"),
+                            "price_usd": Decimal("300"),
+                            "symbol": "WETH",
+                        },
+                    ],
+                    "total_supply": Decimal("12132.548610419336726782"),
+                    "transactions": [],
+                },
+                {
+                    "balance_usd": Decimal("12389.97119112158987653180554"),
+                    "contract_address": "0xd3d2e2692501a5c9ca623199d38826e513033a17",
+                    "owner_balance": Decimal("123.321"),
+                    "price_usd": Decimal("127.3845727279631862808239477"),
+                    "share": Decimal("0.03216141531736690197605588913"),
+                    "staking_contract_address": None,
+                    "symbol": "UNI-WETH",
+                    "tokens": [
+                        {
+                            "balance": Decimal("2507.251711124511447287084553"),
+                            "balance_usd": Decimal("6194.985595560794938265902768"),
+                            "price_usd": Decimal("2.470827148336981900270899925"),
+                            "symbol": "UNI",
+                        },
+                        {
+                            "balance": Decimal("20.64995198520264979421967589"),
+                            "balance_usd": Decimal("6194.985595560794938265902767"),
+                            "price_usd": Decimal("300"),
+                            "symbol": "WETH",
+                        },
+                    ],
+                    "total_supply": Decimal("383443.946054848107867734"),
+                    "transactions": [],
+                },
+                {
+                    "balance_usd": Decimal("3.712410941787299799109246000E-17"),
+                    "contract_address": "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11",
+                    "owner_balance": Decimal("1E-18"),
+                    "price_usd": Decimal("48.94564134134772579153409462"),
+                    "share": Decimal("1.115188423576918100500298355E-23"),
+                    "staking_contract_address": (
+                        "0xa1484C3aa22a66C62b77E0AE78E15258bd0cB711"
+                    ),
+                    "symbol": "DAI-WETH",
+                    "tokens": [
+                        {
+                            "balance": Decimal("2.253566937245298137197573486E-17"),
+                            "balance_usd": Decimal("1.856205470893649899554623000E-17"),
+                            "price_usd": Decimal("0.8236744337235562199344462856"),
+                            "symbol": "DAI",
+                        },
+                        {
+                            "balance": Decimal("6.187351569645499665182076665E-20"),
+                            "balance_usd": Decimal("1.856205470893649899554623000E-17"),
+                            "price_usd": Decimal("300"),
+                            "symbol": "WETH",
+                        },
+                    ],
+                    "total_supply": Decimal("8967094.518364383041536096"),
+                    "transactions": [],
+                },
+            ],
+        }
+
+    def test_portfolio_invalid_address(self):
+        """Invalid addresses are handled with an explicit exception."""
+        address = "0xInvalidAdress"
+        with pytest.raises(self.uniswap.InvalidAddressException, match=address):
+            self.uniswap.portfolio(address)
+
+    def test_main(self):
+        argv = ["pools/uniswap.py"]
+        exit_code = 2
+        with patch_sys_argv(argv), patch_portfolio() as m_portfolio, pytest.raises(
+            SystemExit, match=str(exit_code)
+        ):
+            self.uniswap.main()
+        assert m_portfolio.call_args_list == []
+
+    def test_main_argv(self):
+        argv = ["pools/uniswap.py", self.address]
+        with patch_sys_argv(argv), patch_portfolio() as m_portfolio:
+            self.uniswap.main()
+        assert m_portfolio.call_args_list == [mock.call(self.address)]

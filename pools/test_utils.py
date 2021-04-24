@@ -260,3 +260,30 @@ def patch_client_execute(m_execute):
 def patch_session_fetch_schema():
     """Bypassing `fetch_schema()` on unit tests."""
     return mock.patch("gql.client.SyncClientSession.fetch_schema")
+
+
+def patch_get_liquidity_positions(positions=None):
+    positions = positions or []
+    return mock.patch("pools.uniswap.get_liquidity_positions", return_value=positions)
+
+
+def patch_get_staking_positions(positions=None):
+    positions = positions or []
+    return mock.patch("pools.uniswap.get_staking_positions", return_value=positions)
+
+
+def patch_get_lp_transactions(mints_burns):
+    return mock.patch("pools.uniswap.get_lp_transactions", return_value=mints_burns)
+
+
+def patch_get_eth_price(price):
+    return mock.patch("pools.uniswap.get_eth_price", return_value=price)
+
+
+def patch_portfolio(data=None):
+    data = data or {}
+    return mock.patch("pools.uniswap.portfolio", return_value=data)
+
+
+def patch_sys_argv(argv):
+    return mock.patch("sys.argv", argv)
