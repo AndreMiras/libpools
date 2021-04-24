@@ -11,7 +11,7 @@ def read(fname):
 # exposing the params so it can be imported
 setup_params = {
     "name": "pools",
-    "version": "20210424",
+    "version": "20210424.dev0",
     "description": "Python library for pools liquidity providers",
     "long_description": read("README.md"),
     "long_description_content_type": "text/markdown",
