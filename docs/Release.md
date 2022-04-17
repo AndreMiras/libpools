@@ -24,7 +24,7 @@ git push --tags
 ```
 
 ## Publish to PyPI
-This process is handled automatically by Travis.
+This process is handled automatically by [GitHub Actions](https://github.com/AndreMiras/libpools/actions/workflows/pypi-release.yml).
 If needed below are the instructions to perform it manually.
 Build it:
 ```sh
